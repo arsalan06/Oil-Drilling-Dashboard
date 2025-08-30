@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Bell, User, Upload } from "lucide-react";
+import { Bell, User, Upload, ZoomIn, ZoomOut } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import { FileUpload } from "@/components/file-upload";
 import { StatsCards } from "@/components/stats-cards";
@@ -10,8 +10,8 @@ import {
 } from "@/components/well-data-chart";
 import { DataTable } from "@/components/data-table";
 import { AiChat } from "@/components/ai-chat";
-import { WellDataRow, WellStats } from "@/types/well-data";
-import { loadFromLocalStorage } from "@/lib/file-utils";
+import { WellDataRow } from "@/types/well-data";
+
 interface StoredData {
   data: any; // or your real type, e.g. WellDataRow[]
 }
@@ -35,6 +35,9 @@ export default function Dashboard() {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // 🔎 Zoom state
+  const [zoomLevel, setZoomLevel] = useState(1);
+
   const selectedWell = wells.find((w) => w.id === selectedWellId);
 
   useEffect(() => {
@@ -50,9 +53,6 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    // Load existing data for selected well
-    const storageKey = `well_data_${selectedWellId}`;
-
     const storedData: StoredData = JSON.parse(
       localStorage.getItem("myData") || "{}"
     );
@@ -75,32 +75,13 @@ export default function Dashboard() {
   };
 
   const handleRefresh = () => {
-    // Refresh wells list - in a real app this would fetch from API
     console.log("Refreshing wells...");
   };
 
-  const getWellStats = (): WellStats => {
-    if (wellData.length === 0) {
-      return {
-        currentDepth: selectedWell?.depth || 0,
-        ropAverage: 28.5,
-        currentFormation: "Sandstone",
-        wellStatus: "Active",
-      };
-    }
-
-    const maxDepth = Math.max(...wellData.map((d) => d.depth));
-    const avgRop =
-      wellData.reduce((sum, d) => sum + d.rop, 0) / wellData.length;
-    const lastFormation = wellData[wellData.length - 1]?.rock_type || "Unknown";
-
-    return {
-      currentDepth: maxDepth,
-      ropAverage: parseFloat(avgRop.toFixed(1)),
-      currentFormation: lastFormation,
-      wellStatus: selectedWell?.status === "active" ? "Active" : "Drilling",
-    };
-  };
+  // 🔎 Zoom handlers
+  const handleZoomIn = () => setZoomLevel((z) => Math.min(z + 0.1, 2));
+  const handleZoomOut = () => setZoomLevel((z) => Math.max(z - 0.1, 0.5));
+  const handleResetZoom = () => setZoomLevel(1);
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -119,16 +100,36 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <FileUpload
+          <div className="flex items-center gap-3">
+            {/* 🔎 Zoom Controls */}
+            <Button variant="ghost" size="icon" onClick={handleZoomOut}>
+              <ZoomOut className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleZoomIn}>
+              <ZoomIn className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleResetZoom}>
+              Reset
+            </Button>
+
+            {/* <FileUpload
               onDataUploaded={handleDataUploaded}
               wellId={selectedWellId}
-            />
-            <Button variant="ghost" size="icon">
+            /> */}
+            {/* <Button variant="ghost" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
             <Button variant="ghost" size="icon">
               <User className="h-5 w-5" />
+            </Button> */}
+            <Button variant="ghost" size="icon" onClick={handleZoomOut}>
+              <ZoomOut className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleZoomIn}>
+              <ZoomIn className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleResetZoom}>
+              Reset
             </Button>
           </div>
         </nav>
@@ -161,7 +162,10 @@ export default function Dashboard() {
           )}
 
           {/* Main Content */}
-          <div className="flex-1 p-6">
+          <div
+            className="flex-1 p-6 origin-top-left transition-transform duration-200"
+            style={{ transform: `scale(${zoomLevel})` }}
+          >
             {/* Data Visualization */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
               <RockCompositionChart data={wellData} />
@@ -195,7 +199,7 @@ export default function Dashboard() {
       {/* Right Chat Panel (always separate from nav) */}
       {!isMobile && (
         <div className="w-96 border-l border-border bg-card sticky top-0 h-screen">
-          <div className="p-6 h-full">
+          <div className="p-4 h-full">
             <AiChat wellName={selectedWell?.name || "Unknown Well"} />
           </div>
         </div>
